@@ -76,6 +76,25 @@ def TopologyParse(topologyPath):
 
     
 
+def ARP_REQ(ipm1, ipm2):
+    mask1 = int(ipm1.split('/')[1])
+    mask2 = int(ipm2.split('/')[1])
+    if mask1 != mask2:
+        print("not in the same network")
+        return
+    ip1 = ""
+    for v in ipm1.split('/')[0].split('.'):
+        ip1 += "{:08b}".format(int(v))
+    ip2 = ""
+    for v in ipm2.split('/')[0].split('.'):
+        ip2 += "{:08b}".format(int(v))
+
+    for i in range(0, mask1):
+        if(ip1[i] != ip2[i]):
+            print("not in the same network")
+            return #break
+    print("in the same network")
+
 
 
 def main():
@@ -87,11 +106,15 @@ def main():
     destino = sys.argv[3]
     mensagem = sys.argv[4]
 
+    # 11000000.10101000.00000000.00000001 
+    # 11000000.10101000.00000001.00000001 
     ip_origem = nodes[origem].IP
     ip_destino = nodes[destino].IP
+    ARP_REQ(ip_origem, ip_destino)
 
-    print(ip_origem)
-    print(ip_destino)
+    
+    
+    
     # get source(n2) ip
     # n1 --> ARP_REQ n1 n2?
     # ta na minha rede? --> gateway
@@ -101,8 +124,7 @@ def main():
 
 
 
-
-
+    
         
     
     
