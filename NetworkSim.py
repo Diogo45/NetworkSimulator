@@ -61,13 +61,10 @@ def TopologyParse(topologyPath):
             MTUs = []
             for i in range(0, numPorts):
                 MACi = routerArgs[2 + 3*i]
-                print(MACi)
                 MACs.append(MACi)
                 IPi = routerArgs[3 + 3*i]
-                print(IPi)
                 IPs.append(IPi)
                 MTUi = int(routerArgs[4 + 3*i])
-                print(MTUi)
                 MTUs.append(MTUi)
             router = Router(RouterName = routerName, NumPorts = numPorts, MAC = MACs, IP = IPs, MTU = MTUs)
             routers[routerName] = router
@@ -86,13 +83,21 @@ def main():
         print("Not enough arguments")
         return
     TopologyParse(sys.argv[1])
-    get source(n1) ip
-    get source(n2) ip
-    n1 --> ARP_REQ n1 n2?
-    ta na minha rede? --> gateway
-        n2 responde
-    senao checar RouterTable
-        router responde
+    origem = sys.argv[2]
+    destino = sys.argv[3]
+    mensagem = sys.argv[4]
+
+    ip_origem = nodes[origem].IP
+    ip_destino = nodes[destino].IP
+
+    print(ip_origem)
+    print(ip_destino)
+    # get source(n2) ip
+    # n1 --> ARP_REQ n1 n2?
+    # ta na minha rede? --> gateway
+    #     n2 responde
+    # senao checar RouterTable
+    #     router responde
 
 
 
