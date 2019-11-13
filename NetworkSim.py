@@ -76,12 +76,14 @@ def TopologyParse(topologyPath):
 
     
 
-def ARP_REQ(ipm1, ipm2):
+def ARP_REQ(origem, destino):
+    ipm1 = nodes[origem].IP
+    ipm2 = nodes[destino].IP
     mask1 = int(ipm1.split('/')[1])
     mask2 = int(ipm2.split('/')[1])
     if mask1 != mask2:
-        print("not in the same network")
-        return
+        #print("not in the same network")
+        return False
     ip1 = ""
     for v in ipm1.split('/')[0].split('.'):
         ip1 += "{:08b}".format(int(v))
@@ -91,9 +93,27 @@ def ARP_REQ(ipm1, ipm2):
 
     for i in range(0, mask1):
         if(ip1[i] != ip2[i]):
-            print("not in the same network")
-            return #break
-    print("in the same network")
+            #print("not in the same network")
+
+            return False
+    #print("in the same network")
+    return True
+
+def SendARP(sameNetwork, source, destiny):
+    
+    if sameNetwork:
+        print(source + " box " + source + " : ETH (src=" + nodes[source].MAC + " dst=FF:FF:FF:FF:FF:FF) \n ARP - Who has - " + nodes[destiny].IP.split('/')[0] + "? Tell " + nodes[source].IP.split('/')[0] + ";")
+        print(destiny + " => " + source + " : ETH (src=" + nodes[destiny].MAC + " dst=" + nodes[source].MAC + ") \n ARP - " + nodes[destiny].IP.split('/')[0] + " is at " + nodes[destiny].MAC + ";")
+        return nodes[destiny].MAC
+    else:
+        print(source + " box " + source + " : ETH (src=" + nodes[source].MAC + " dst=FF:FF:FF:FF:FF:FF) \n ARP - Who has - " + nodes[source].Gateway + "? Tell " + nodes[source].IP.split('/')[0] + ";")
+        ipdest = nodes[source].Gateway
+        
+        for i in range(0, len(routers[destiny].MAC)):
+            if ipdest == routers[destiny].IP[i]:
+                print(destiny + " => " + source + " : ETH (src=" + routers[destiny].MAC[i] + " dst=" + nodes[source].MAC + ") \n ARP - " + nodes[source].Gateway + " is at " + routers[destiny].MAC[i] + ";")
+                return routers[destiny].MAC[i]
+
 
 
 
@@ -108,10 +128,9 @@ def main():
 
     # 11000000.10101000.00000000.00000001 
     # 11000000.10101000.00000001.00000001 
-    ip_origem = nodes[origem].IP
-    ip_destino = nodes[destino].IP
-    ARP_REQ(ip_origem, ip_destino)
-
+    
+    inNet = ARP_REQ(origem, destino)
+    SendARP(inNet, origem, "r1")
     
     
     
