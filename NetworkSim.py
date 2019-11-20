@@ -102,19 +102,66 @@ def ARP_REQ(origem, destino):
 def SendARP(sameNetwork, source, destiny):
     
     if sameNetwork:
-        print(source + " box " + source + " : ETH (src=" + nodes[source].MAC + " dst=FF:FF:FF:FF:FF:FF) \n ARP - Who has - " + nodes[destiny].IP.split('/')[0] + "? Tell " + nodes[source].IP.split('/')[0] + ";")
-        print(destiny + " => " + source + " : ETH (src=" + nodes[destiny].MAC + " dst=" + nodes[source].MAC + ") \n ARP - " + nodes[destiny].IP.split('/')[0] + " is at " + nodes[destiny].MAC + ";")
+        print(source + " box " + source + " : ETH (src=" + nodes[source].MAC + " dst=FF:FF:FF:FF:FF:FF) \\n ARP - Who has - " + nodes[destiny].IP.split('/')[0] + "? Tell " + nodes[source].IP.split('/')[0] + ";")
+        print(destiny + " => " + source + " : ETH (src=" + nodes[destiny].MAC + " dst=" + nodes[source].MAC + ") \\n ARP - " + nodes[destiny].IP.split('/')[0] + " is at " + nodes[destiny].MAC + ";")
         return nodes[destiny].MAC
     else:
-        print(source + " box " + source + " : ETH (src=" + nodes[source].MAC + " dst=FF:FF:FF:FF:FF:FF) \n ARP - Who has - " + nodes[source].Gateway + "? Tell " + nodes[source].IP.split('/')[0] + ";")
+        print(source + " box " + source + " : ETH (src=" + nodes[source].MAC + " dst=FF:FF:FF:FF:FF:FF) \\n ARP - Who has - " + nodes[source].Gateway + "? Tell " + nodes[source].IP.split('/')[0] + ";")
         ipdest = nodes[source].Gateway
+        myRouter = ""
+
+        for router in routers.values():
+            for ip in router.IP:
+                if nodes[source].Gateway.strip() in ip.strip():
+                    myRouter = router.RouterName
+
+
+        for i in range(0, len(routers[myRouter].MAC)):
+            if ipdest == routers[myRouter].IP[i]:
+                print(myRouter + " => " + source + " : ETH (src=" + routers[myRouter].MAC[i] + " dst=" + nodes[source].MAC + ") \\n ARP - " + nodes[source].Gateway + " is at " + routers[myRouter].MAC[i] + ";")
+                return routers[myRouter].MAC[i]
+
+
+def SendICMPSameNet(source, dest, data, off, mf):
+    if mf > 0:
+        MTU = nodes[source].MTU
+        for i in range(0, len(data)//MTU):
+            idata = data[off:off+MTU]
+            if i == (len(data)//MTU - 1):
+                print(source + " => " + dest + " : ETH (src=" + nodes[source].MAC + " dst=" + nodes[dest].MAC + ") \\n IP (src=" + nodes[source].IP + " dst=" + nodes[dest].IP + " ttl=8 mf=0 off=" + str(off) + ") \\n ICMP - Echo request (data=" + idata + ");")
+            else:
+                print(source + " => " + dest + " : ETH (src=" + nodes[source].MAC + " dst=" + nodes[dest].MAC + ") \\n IP (src=" + nodes[source].IP + " dst=" + nodes[dest].IP + " ttl=8 mf=1 off=" + str(off) + ") \\n ICMP - Echo request (data=" + idata + ");")
+            off += MTU
+
+        print(dest +" rbox "+ dest + " : Received "+data+";")
+        off = 0
+
+        for i in range(0, len(data)//MTU):
+            idata = data[off:off+MTU]
+            if i == (len(data)//MTU - 1):
+                print(dest + " => " + source + " : ETH (src=" + nodes[dest].MAC + " dst=" + nodes[source].MAC + ") \\n IP (src=" + nodes[dest].IP + " dst=" + nodes[source].IP + " ttl=8 mf=0 off=" + str(off) + ") \\n ICMP - Echo reply (data=" + idata + ");")
+            else:
+                print(dest + " => " + source + " : ETH (src=" + nodes[dest].MAC + " dst=" + nodes[source].MAC + ") \\n IP (src=" + nodes[dest].IP + " dst=" + nodes[source].IP + " ttl=8 mf=1 off=" + str(off) + ") \\n ICMP - Echo reply (data=" + idata + ");")
+            off += MTU
         
-        for i in range(0, len(routers[destiny].MAC)):
-            if ipdest == routers[destiny].IP[i]:
-                print(destiny + " => " + source + " : ETH (src=" + routers[destiny].MAC[i] + " dst=" + nodes[source].MAC + ") \n ARP - " + nodes[source].Gateway + " is at " + routers[destiny].MAC[i] + ";")
-                return routers[destiny].MAC[i]
+        print(source +" rbox "+ source + " : Received "+data+";")
+            
+    else:
+        print(source + " => " + dest + " : ETH (src=" + nodes[source].MAC + " dst=" + nodes[dest].MAC + ") \\n IP (src=" + nodes[source].IP + " dst=" + nodes[dest].IP + " ttl=8 mf=" + str(mf) + " off=" + str(off) + ") \\n ICMP - Echo request (data=" + data + ");")
+
+        print(dest +" rbox "+ dest + " : Received "+data+";")
+
+        print(dest + " => " + source + " : ETH (src=" + nodes[dest].MAC + " dst=" + nodes[source].MAC + ") \\n IP (src=" + nodes[dest].IP + " dst=" + nodes[source].IP + " ttl=8 mf=" + str(mf) + " off=" + str(off) + ") \\n ICMP - Echo reply (data=" + data + ");")
+
+        print(source +" rbox "+ source + " : Received "+data+";")
 
 
+
+
+
+
+def SendICMPOtherNet(source, dest, data, off, mf, ttl):
+    return NotImplementedError
 
 
 def main():
@@ -130,9 +177,18 @@ def main():
     # 11000000.10101000.00000001.00000001 
     
     inNet = ARP_REQ(origem, destino)
-    SendARP(inNet, origem, "r1")
+
+    SendARP(inNet, origem, destino)
     
-    
+    if inNet:
+        #NIVEL ENLACE
+        if len(mensagem) > nodes[origem].MTU:
+            SendICMPSameNet(origem, destino, mensagem, 0, 1)
+        else:
+            SendICMPSameNet(origem, destino, mensagem, 0, 0)
+    else:
+        return NotImplementedError
+        #NIVEL REDE
     
     # get source(n2) ip
     # n1 --> ARP_REQ n1 n2?
