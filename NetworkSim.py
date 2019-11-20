@@ -3,7 +3,9 @@ import sys
 nodes = {}
 routers = {}
 
-
+def mask(item):
+    return int(item.Dest.split('/')[1])
+    
 class Node():
     def __init__(self, NodeName, MAC, IP, MTU, Gateway):
         self.NodeName = NodeName
@@ -21,7 +23,7 @@ class Router():
         self.MAC = MAC
         self.IP = IP
         self.MTU = MTU
-        self.RouterTable = {}
+        self.RouterTable = []
     def __str__(self):
         return self.RouterName + ", " + str(self.NumPorts) + ", " + str(self.MAC) + ", " + str(self.IP) + ", " + str(self.MTU)    
 
@@ -32,6 +34,8 @@ class RouterTableEntry():
             self.Port = Port
     def __str__(self):
         return self.Dest + ", " + self.NextHop + ", " + str(self.Port)
+    def __repr__(self):
+        return '<'+str(self)+'>'
 
 def TopologyParse(topologyPath):
     topologyFile = open(topologyPath)
@@ -72,7 +76,9 @@ def TopologyParse(topologyPath):
             tableArgs = line.split(',')
             key = tableArgs[0]
             tableEntry = RouterTableEntry(Dest = tableArgs[1], NextHop = tableArgs[2], Port = int(tableArgs[3]))
-            routers[key].RouterTable[tableArgs[1]] = tableEntry
+            routers[key].RouterTable.append(tableEntry)
+    for router in routers.values():
+        router.RouterTable = sorted(router.RouterTable, key=mask, reverse=True)
 
     
 
@@ -157,9 +163,6 @@ def SendICMPSameNet(source, dest, data, off, mf):
 
 
 
-
-
-
 def SendICMPOtherNet(source, dest, data, off, mf, ttl):
     return NotImplementedError
 
@@ -187,15 +190,11 @@ def main():
         else:
             SendICMPSameNet(origem, destino, mensagem, 0, 0)
     else:
-        return NotImplementedError
         #NIVEL REDE
-    
-    # get source(n2) ip
-    # n1 --> ARP_REQ n1 n2?
-    # ta na minha rede? --> gateway
-    #     n2 responde
-    # senao checar RouterTable
-    #     router responde
+        if len(mensagem) > nodes[origem].MTU:
+            SendICMPOtherNet(origem, destino, mensagem, 0, 1, 8)
+        else:
+            SendICMPOtherNet(origem, destino, mensagem, 0, 0, 8)
 
 
 
