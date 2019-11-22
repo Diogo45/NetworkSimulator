@@ -80,8 +80,6 @@ def TopologyParse(topologyPath):
     for router in routers.values():
         router.RouterTable = sorted(router.RouterTable, key=mask, reverse=True)
 
-    
-
 def ARP_REQ(origem, destino):
     ipm1 = nodes[origem].IP
     ipm2 = nodes[destino].IP
@@ -125,7 +123,7 @@ def SendARP(sameNetwork, source, destiny):
         for i in range(0, len(routers[myRouter].MAC)):
             if ipdest == routers[myRouter].IP[i]:
                 print(myRouter + " => " + source + " : ETH (src=" + routers[myRouter].MAC[i] + " dst=" + nodes[source].MAC + ") \\n ARP - " + nodes[source].Gateway + " is at " + routers[myRouter].MAC[i] + ";")
-                return routers[myRouter].MAC[i]
+                return (myRouter, i)
 
 
 def SendICMPSameNet(source, dest, data, off, mf):
@@ -163,8 +161,29 @@ def SendICMPSameNet(source, dest, data, off, mf):
 
 
 
-def SendICMPOtherNet(source, dest, data, off, mf, ttl):
-    return NotImplementedError
+def SendICMPOtherNet(source, dest, data, off, mf, ttl, msgType, firstRouter):
+    
+    # se mf
+        #while(ttl > 1)
+            #se estou em dest dai sim manda SendICMPOTherNet src=dest dst=source    
+            #enviar para roteador todos os frag
+            #roteador checa rooutertable(procura linear) checar a mascara
+            #ttl - 1
+    #se nao
+        #while(ttl > 1)
+            #se estou em dest dai sim manda SendICMPOTherNet src=dest dst=source    
+            #enviar para roteador
+            #roteador checa rooutertable(procura linear) checar a mascara
+            #ttl - 1
+    if mf != 0:
+        print("NAO")
+    else:
+        current = firstRouter[0]
+        print(source + " => " + firstRouter[0] + " : ETH (src=" + nodes[source].MAC + " dst=" + routers[firstRouter[0]].MAC[firstRouter[1]] +") \\n IP (src=" + nodes[source].IP + " dst="+ routers[firstRouter[0]].IP[firstRouter[1]] + "ttl=" + ttl + " mf=0 off=0) \\n ICMP -" + msgType + "(data=" + data + ")")
+        while ttl > 1:
+            if current.strip() == dest.strip():
+                #ARP MTU 
+                SendICMPOtherNet(dest,source, data, 0, 0, 0, "Echo reply", firstRouter)
 
 
 def main():
@@ -192,9 +211,9 @@ def main():
     else:
         #NIVEL REDE
         if len(mensagem) > nodes[origem].MTU:
-            SendICMPOtherNet(origem, destino, mensagem, 0, 1, 8)
+            SendICMPOtherNet(origem, destino, mensagem, 0, 1, 8, " Echo request ")
         else:
-            SendICMPOtherNet(origem, destino, mensagem, 0, 0, 8)
+            SendICMPOtherNet(origem, destino, mensagem, 0, 0, 8, " Echo request ")
 
 
 
