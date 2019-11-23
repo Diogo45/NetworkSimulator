@@ -208,19 +208,19 @@ def TopologyParse(topologyPath):
         if reading == "NODE":
             nodeargs = line.split(',')
             ipToName[nodeargs[2]] = (nodeargs[0], -1)
-            node = Node(NodeName = nodeargs[0], MAC = nodeargs[1], IP = nodeargs[2], MTU = int(nodeargs[3]), Gateway = nodeargs[4])
+            node = Node(NodeName = nodeargs[0].strip(), MAC = nodeargs[1].strip(), IP = nodeargs[2].strip(), MTU = int(nodeargs[3]), Gateway = nodeargs[4].strip().strip('\n'))
             nodes[nodeargs[0]] = node
         elif reading == "ROUTER":
             routerArgs = line.split(',')
-            routerName = routerArgs[0]
+            routerName = routerArgs[0].strip()
             numPorts = int(routerArgs[1])
             MACs = []
             IPs = []
             MTUs = []
             for i in range(0, numPorts):
-                MACi = routerArgs[2 + 3*i]
+                MACi = routerArgs[2 + 3*i].strip()
                 MACs.append(MACi)
-                IPi = routerArgs[3 + 3*i]
+                IPi = routerArgs[3 + 3*i].strip()
                 ipToName[IPi] = (routerName, i)
                 IPs.append(IPi)
                 MTUi = int(routerArgs[4 + 3*i])
@@ -229,7 +229,7 @@ def TopologyParse(topologyPath):
             routers[routerName] = router
         elif reading == "ROUTERTABLE":
             tableArgs = line.split(',')
-            key = tableArgs[0]
+            key = tableArgs[0].strip()
             tableEntry = RouterTableEntry(Dest = tableArgs[1], NextHop = tableArgs[2], Port = int(tableArgs[3]))
             routers[key].RouterTable.append(tableEntry)
     for router in routers.values():
