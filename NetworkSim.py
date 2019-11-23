@@ -3,6 +3,9 @@ import sys
 nodes = {}
 routers = {}
 
+ipToName = {}
+
+
 def mask(item):
     return int(item.Dest.split('/')[1])
     
@@ -13,8 +16,122 @@ class Node():
         self.IP = IP
         self.MTU = MTU
         self.Gateway = Gateway
+        self.ARPs = {}
     def __str__(self):
         return self.NodeName + ", " + self.MAC + ", " + self.IP + ", " + str(self.MTU) + ", " + self.Gateway
+    def SameNet(self, dest):
+        ipm1 = self.IP
+        ipm2 = nodes[dest].IP
+        mask1 = int(ipm1.split('/')[1])
+        mask2 = int(ipm2.split('/')[1])
+        if mask1 != mask2:
+            return False
+        ip1 = ""
+        for v in ipm1.split('/')[0].split('.'):
+            ip1 += "{:08b}".format(int(v))
+        ip2 = ""
+        for v in ipm2.split('/')[0].split('.'):
+            ip2 += "{:08b}".format(int(v))
+
+        for i in range(0, mask1):
+            if(ip1[i] != ip2[i]):
+                return False
+        return True
+
+    def SendNewPackage(self, dest, data, msgType):
+        inNet = self.SameNet(dest)
+        #ARP Req and Resp
+        if inNet:
+            nextHopIP = nodes[dest].IP
+            (nextHopName, ID) = ipToName[nextHopIP]
+            nextHop = nodes[nextHopName]
+            if nextHopIP not in self.ARPs.keys():
+
+                nextHopMAC = nextHop.MAC
+                self.ARPs[nextHopIP] = nextHopMAC  
+                #Ver se faz sentido
+                nextHop.ARPs[self.IP] = self.MAC    
+                ###################################################################################
+                print(self.NodeName + " box " + self.NodeName + " : ETH (src=" + self.MAC + " dst=FF:FF:FF:FF:FF:FF) \\n ARP - Who has - " + nextHopIP.split('/')[0] + "? Tell " + self.IP.split('/')[0] + ";")
+                print(nextHopName + " => " + self.NodeName + " : ETH (src=" + nextHopMAC + " dst=" + self.MAC + ") \\n ARP - " + nextHopIP.split('/')[0] + " is at " + nextHopMAC + ";")        
+            else:
+                nextHopMAC = self.ARPs[nextHopIP]
+        else:
+            #Resolver /24 no hora que le e os strip tbm
+            nextHopIP = self.Gateway.strip('\n') + "/" + self.IP.split('/')[1]
+            (nextHopName, ID) = ipToName[nextHopIP]
+            nextHop = routers[nextHopName]
+            if nextHopIP not in self.ARPs.keys():
+                nextHopMAC = nextHop.MAC[ID]
+                self.ARPs[nextHopIP] = nextHopMAC
+                nextHop.ARPs[self.IP] = self.MAC 
+                ###################################################################################
+                print(self.NodeName + " box " + self.NodeName + " : ETH (src=" + self.MAC + " dst=FF:FF:FF:FF:FF:FF) \\n ARP - Who has - " + self.Gateway + "? Tell " + self.IP.split('/')[0] + ";")
+                print(nextHopName + " => " + self.NodeName + " : ETH (src=" + nextHopMAC + " dst=" + self.MAC + ") \\n ARP - " + self.Gateway + " is at " + nextHopMAC + ";")
+            else:
+                nextHopMAC = self.ARPs[nextHopIP]
+        fragments = []
+        if len(data) > self.MTU:
+           MTU = self.MTU
+           off = 0
+           for i in range(0, len(data)//MTU):
+                idata = data[off:off+MTU]
+                if i == (len(data)//MTU - 1):
+                    msgi = Message(self.MAC, nextHopMAC, self.IP, nextHopIP, msgType, 8, 0, off, idata)
+                    fragments.append(msgi)
+                    ###################################################################################
+                    print(self.NodeName + " => " + nextHopName + " : ETH (src=" + self.MAC + " dst=" + nextHopMAC + ") \\n IP (src=" + self.IP + " dst=" + nextHopIP + " ttl=8 mf=0 off=" + str(msgi.off) + ") \\n ICMP - "+ msgi.msgType + " (data=" + msgi.data + ");")
+                else:
+                    msgi = Message(self.MAC, nextHopMAC, self.IP, nextHopIP, msgType, 8, 1, off, idata)
+                    fragments.append(msgi)
+                    ###################################################################################
+                    print(self.NodeName + " => " + dest + " : ETH (src=" + self.MAC + " dst=" + nextHopMAC + ") \\n IP (src=" + self.IP + " dst=" + nextHopIP + " ttl=8 mf=1 off=" + str(msgi.off) + ") \\n ICMP - Echo request (data=" + msgi.data + ");")
+                off += MTU
+
+        else:
+            msg = Message(self.MAC, nextHopMAC, self.IP, nextHopIP, msgType, 8, 0, 0, data)
+            ###################################################################################
+            print(self.NodeName + " => " + nextHopName + " : ETH (src=" + self.MAC + " dst=" + nextHopMAC + ") \\n IP (src=" + self.IP + " dst=" + nextHopIP + " ttl=8 mf=" + str(msg.mf) + " off=" + str(msg.off) + ") \\n ICMP - " + msg.msgType + " (data=" + msg.data + ");")
+            fragments.append(msg)    
+
+        nextHop.RelayPackage(fragments)
+
+    def RelayPackage(self, frags):
+        msg = frags[0]
+        if len(frags) > 1:
+            fullMsg = ""
+            for i in range(0, len(frags)):
+                msgi = frags[i]
+                print(ipToName[msgi.dstIP][0] +" rbox "+ ipToName[msgi.dstIP][0] + " : Received " + msgi.data + ";")
+                fullMsg += msgi.data
+            if msg.msgType == "Echo Reply":
+                return
+            else:
+                self.SendNewPackage(ipToName[msg.srcIP][0], fullMsg, "Echo Reply") 
+        else:
+            print(ipToName[msg.dstIP][0] +" rbox "+ ipToName[msg.dstIP][0] + " : Received " + msg.data + ";")
+            if msg.msgType == "Echo Reply":
+                return
+            else:
+                self.SendNewPackage(ipToName[msg.srcIP][0], msg.data, "Echo Reply") 
+
+
+        
+    
+class Message():
+    def __init__(self, srcMAC, dstMAC, srcIP, dstIP, msgType, ttl, mf, off, data):
+        self.srcMAC = srcMAC
+        self.dstMAC = dstMAC
+        self.srcIP = srcIP
+        self.dstIP = dstIP
+        self.msgType = msgType
+        self.ttl = ttl
+        self.mf = mf
+        self.off = off
+        self.data = data
+
+
+
         
 class Router():
     def __init__(self, RouterName, NumPorts, MAC, IP, MTU):
@@ -24,8 +141,12 @@ class Router():
         self.IP = IP
         self.MTU = MTU
         self.RouterTable = []
+        self.ARPs = {}
     def __str__(self):
         return self.RouterName + ", " + str(self.NumPorts) + ", " + str(self.MAC) + ", " + str(self.IP) + ", " + str(self.MTU)    
+
+    def RelayPackage(self, frags):
+        print("RELAY")
 
 class RouterTableEntry():
     def __init__(self, Dest, NextHop, Port):
@@ -54,6 +175,7 @@ def TopologyParse(topologyPath):
             
         if reading == "NODE":
             nodeargs = line.split(',')
+            ipToName[nodeargs[2]] = (nodeargs[0], -1)
             node = Node(NodeName = nodeargs[0], MAC = nodeargs[1], IP = nodeargs[2], MTU = int(nodeargs[3]), Gateway = nodeargs[4])
             nodes[nodeargs[0]] = node
         elif reading == "ROUTER":
@@ -67,6 +189,7 @@ def TopologyParse(topologyPath):
                 MACi = routerArgs[2 + 3*i]
                 MACs.append(MACi)
                 IPi = routerArgs[3 + 3*i]
+                ipToName[IPi] = (routerName, i)
                 IPs.append(IPi)
                 MTUi = int(routerArgs[4 + 3*i])
                 MTUs.append(MTUi)
@@ -195,25 +318,29 @@ def main():
     destino = sys.argv[3]
     mensagem = sys.argv[4]
 
+    SrcHost = nodes[origem]
+
+    SrcHost.SendNewPackage(destino, mensagem, "Echo Request")
+
     # 11000000.10101000.00000000.00000001 
     # 11000000.10101000.00000001.00000001 
     
-    inNet = ARP_REQ(origem, destino)
+    # inNet = ARP_REQ(origem, destino)
 
-    SendARP(inNet, origem, destino)
+    # SendARP(inNet, origem, destino)
     
-    if inNet:
-        #NIVEL ENLACE
-        if len(mensagem) > nodes[origem].MTU:
-            SendICMPSameNet(origem, destino, mensagem, 0, 1)
-        else:
-            SendICMPSameNet(origem, destino, mensagem, 0, 0)
-    else:
-        #NIVEL REDE
-        if len(mensagem) > nodes[origem].MTU:
-            SendICMPOtherNet(origem, destino, mensagem, 0, 1, 8, " Echo request ")
-        else:
-            SendICMPOtherNet(origem, destino, mensagem, 0, 0, 8, " Echo request ")
+    # if inNet:
+    #     #NIVEL ENLACE
+    #     if len(mensagem) > nodes[origem].MTU:
+    #         SendICMPSameNet(origem, destino, mensagem, 0, 1)
+    #     else:
+    #         SendICMPSameNet(origem, destino, mensagem, 0, 0)
+    # else:
+    #     #NIVEL REDE
+    #     if len(mensagem) > nodes[origem].MTU:
+    #         SendICMPOtherNet(origem, destino, mensagem, 0, 1, 8, " Echo request ")
+    #     else:
+    #         SendICMPOtherNet(origem, destino, mensagem, 0, 0, 8, " Echo request ")
 
 
 
