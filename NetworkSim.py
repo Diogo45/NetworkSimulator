@@ -85,7 +85,7 @@ class Node():
                     msgi = Message(self.MAC, nextHopMAC, self.IP, nextHopIP, msgType, 8, 1, off, idata)
                     fragments.append(msgi)
                     ###################################################################################
-                    print(self.NodeName + " => " + dest + " : ETH (src=" + self.MAC + " dst=" + nextHopMAC + ") \\n IP (src=" + self.IP + " dst=" + nodes[dest].IP + " ttl=8 mf=1 off=" + str(msgi.off) + ") \\n ICMP - Echo request (data=" + msgi.data + ");")
+                    print(self.NodeName + " => " + dest + " : ETH (src=" + self.MAC + " dst=" + nextHopMAC + ") \\n IP (src=" + self.IP + " dst=" + nodes[dest].IP + " ttl=8 mf=1 off=" + str(msgi.off) + ") \\n ICMP -  "+ msgi.msgType + " (data=" + msgi.data + ");")
                 off += MTU
 
         else:
@@ -168,8 +168,12 @@ class Router():
         msg = frags[0]
         (dest, ID) = ipToName[msg.dstIP]
         inNet = self.SameNet(ID, dest)
-        #if inNet:
-
+        if inNet:
+            #Find out who MAC dest
+            #Response from Dest
+        else:
+            #Find out who MAC dest
+            #Response form other router
 
 
 
